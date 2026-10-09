@@ -33,91 +33,114 @@ h1,h2,h3{line-height:1.25;margin:0 0 6px}
 <header><div class="logo" data-act="home">✒️ Inkwell</div><nav id="nav"></nav></header>
 <main id="app"></main>
 <script>
-// ---------- Storage ----------
-let mem=null;
-const KEY='inkwell_db_v1';
-function load(){try{const r=localStorage.getItem(KEY);if(r)return JSON.parse(r)}catch(e){}return mem}
-function save(d){mem=d;try{localStorage.setItem(KEY,JSON.stringify(d))}catch(e){}}
-let db=load()||{users:[],posts:[],comments:[],session:null,seq:1};
-const id=()=>db.seq++;
-const hash=async(s)=>{try{const b=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(s));return [...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,'0')).join('')}catch(e){return btoa(s)}};
-if(!db.posts.length){db.users.push({id:0,name:'Inkwell Team',email:'team@inkwell.dev',pw:''});
-db.posts.push({id:id(),authorId:0,title:'Welcome to Inkwell',body:'Register an account, write your first post, and join the conversation in the comments.\n\nPosts and comments are saved in your browser.',created:Date.now(),updated:null});save(db)}
+// ====== CHANGE THIS to your deployed backend URL ======
+const API = 'http://localhost:5000/api';
 
-// ---------- API layer ----------
-const api={
- async register({name,email,password}){
-  if(!name||!email||password.length<6)throw Error('Name, email and a 6+ character password are required.');
-  email=email.toLowerCase();if(db.users.some(u=>u.email===email))throw Error('Email already registered.');
-  const u={id:id(),name,email,pw:await hash(password+email)};db.users.push(u);db.session=u.id;save(db);return u},
- async login({email,password}){
-  email=email.toLowerCase();const u=db.users.find(u=>u.email===email&&u.pw===await hash(password+email));
-  if(!u)throw Error('Invalid email or password.');db.session=u.id;save(db);return u},
- logout(){db.session=null;save(db)},
- me(){return db.users.find(u=>u.id===db.session)||null},
- listPosts(){return [...db.posts].sort((a,b)=>b.created-a.created)},
- getPost(i){return db.posts.find(p=>p.id===i)},
- savePost({id:pid,title,body}){
-  const me=api.me();if(!me)throw Error('Login required.');if(!title.trim()||!body.trim())throw Error('Title and content are required.');
-  if(pid){const p=api.getPost(pid);if(p.authorId!==me.id)throw Error('Not allowed.');p.title=title.trim();p.body=body.trim();p.updated=Date.now();save(db);return p}
-  const p={id:id(),authorId:me.id,title:title.trim(),body:body.trim(),created:Date.now(),updated:null};db.posts.push(p);save(db);return p},
- deletePost(pid){const me=api.me(),p=api.getPost(pid);if(!me||p.authorId!==me.id)return;db.posts=db.posts.filter(x=>x.id!==pid);db.comments=db.comments.filter(c=>c.postId!==pid);save(db)},
- comments(pid){return db.comments.filter(c=>c.postId===pid).sort((a,b)=>a.created-b.created)},
- addComment(pid,text){const me=api.me();if(!me)throw Error('Login required.');if(!text.trim())throw Error('Comment is empty.');db.comments.push({id:id(),postId:pid,authorId:me.id,text:text.trim(),created:Date.now()});save(db)},
- deleteComment(cid){const me=api.me(),c=db.comments.find(x=>x.id===cid);if(me&&c&&c.authorId===me.id){db.comments=db.comments.filter(x=>x.id!==cid);save(db)}}
-};
-
-// ---------- UI ----------
-const $=s=>document.querySelector(s);
-const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const who=i=>(db.users.find(u=>u.id===i)||{name:'Unknown'}).name;
-const when=t=>new Date(t).toLocaleDateString(undefined,{year:'numeric',month:'short',day:'numeric'});
-let view={name:'home'},err='';
-
-function render(){
- const me=api.me();
- $('#nav').innerHTML=me?`<span class="meta">Hi, ${esc(me.name)}</span><button class="p" data-act="new">+ New post</button><button data-act="logout">Log out</button>`
-  :`<button data-act="login">Log in</button><button class="p" data-act="register">Sign up</button>`;
- const e=err?`<div class="err">${esc(err)}</div>`:'';err='';
- let h='';
- if(view.name==='home'){
-  h='<h2 style="margin-bottom:14px">Latest posts</h2>'+api.listPosts().map(p=>{
-   const n=api.comments(p.id).length;
-   return `<div class="card post" data-act="open" data-id="${p.id}"><h3>${esc(p.title)}</h3><div class="meta">${esc(who(p.authorId))} · ${when(p.created)} · ${n} comment${n===1?'':'s'}</div><p style="margin:10px 0 0">${esc(p.body.slice(0,160))}${p.body.length>160?'…':''}</p></div>`}).join('')||'<p class="meta">No posts yet.</p>';
- }else if(view.name==='login'||view.name==='register'){
-  const r=view.name==='register';
-  h=`<div class="card"><h2>${r?'Create account':'Log in'}</h2>${e}${r?'<label>Name</label><input id="f-name" autocomplete="name">':''}<label>Email</label><input id="f-email" type="email" autocomplete="email"><label>Password</label><input id="f-pw" type="password" autocomplete="${r?'new-password':'current-password'}"><button class="p" data-act="${r?'doreg':'dologin'}">${r?'Sign up':'Log in'}</button> <button class="l" data-act="${r?'login':'register'}">${r?'Have an account?':'Need an account?'}</button></div>`;
- }else if(view.name==='edit'){
-  const p=view.id?api.getPost(view.id):{title:'',body:''};
-  h=`<div class="card"><h2>${view.id?'Edit post':'New post'}</h2>${e}<label>Title</label><input id="f-title" value="${esc(p.title)}"><label>Content</label><textarea id="f-body">${esc(p.body)}</textarea><div class="row"><button class="p" data-act="dosave">${view.id?'Save changes':'Publish'}</button><button data-act="home">Cancel</button></div></div>`;
- }else if(view.name==='post'){
-  const p=api.getPost(view.id);if(!p){view={name:'home'};return render()}
-  const own=me&&me.id===p.authorId,cs=api.comments(p.id);
-  h=`<button class="l" data-act="home">← All posts</button><div class="card" style="margin-top:10px"><h1>${esc(p.title)}</h1><div class="meta">${esc(who(p.authorId))} · ${when(p.created)}${p.updated?' · edited '+when(p.updated):''}</div><div class="body">${esc(p.body)}</div>${own?`<div class="row"><button data-act="edit" data-id="${p.id}">Edit</button><button class="d" data-act="del" data-id="${p.id}">Delete</button></div>`:''}</div>
-  <h3>${cs.length} comment${cs.length===1?'':'s'}</h3><div class="card">${cs.map(c=>`<div class="cm"><div class="meta"><b>${esc(who(c.authorId))}</b> · ${when(c.created)}${me&&me.id===c.authorId?` · <button class="l d" data-act="delc" data-id="${c.id}">delete</button>`:''}</div>${esc(c.text)}</div>`).join('')||'<div class="meta">Be the first to comment.</div>'}
-  ${me?`<div style="margin-top:12px">${e}<textarea id="f-com" style="min-height:80px" placeholder="Add a comment…"></textarea><button class="p" data-act="addc">Post comment</button></div>`:'<div class="meta" style="margin-top:12px">Log in to join the discussion.</div>'}</div>`;
- }
- $('#app').innerHTML=h;
+// ---------- API helper ----------
+let token = null;
+try { token = localStorage.getItem('inkwell_token'); } catch (e) {}
+function setToken(t) {
+  token = t;
+  try { t ? localStorage.setItem('inkwell_token', t) : localStorage.removeItem('inkwell_token'); } catch (e) {}
+}
+async function call(path, method = 'GET', body) {
+  const r = await fetch(API + path, {
+    method,
+    headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: 'Bearer ' + token } : {}) },
+    body: body ? JSON.stringify(body) : undefined
+  });
+  const d = await r.json().catch(() => ({}));
+  if (!r.ok) throw Error(d.error || 'Request failed');
+  return d;
 }
 
-document.addEventListener('click',async ev=>{
- const t=ev.target.closest('[data-act]');if(!t)return;
- const a=t.dataset.act,pid=+t.dataset.id,v=s=>($(s)||{}).value||'';
- try{
-  if(a==='home')view={name:'home'};
-  else if(a==='login'||a==='register')view={name:a};
-  else if(a==='new'){if(!api.me())return view={name:'login'},render();view={name:'edit'}}
-  else if(a==='open')view={name:'post',id:pid};
-  else if(a==='edit')view={name:'edit',id:pid};
-  else if(a==='logout'){api.logout();view={name:'home'}}
-  else if(a==='doreg'){await api.register({name:v('#f-name').trim(),email:v('#f-email').trim(),password:v('#f-pw')});view={name:'home'}}
-  else if(a==='dologin'){await api.login({email:v('#f-email').trim(),password:v('#f-pw')});view={name:'home'}}
-  else if(a==='dosave'){const p=api.savePost({id:view.id,title:v('#f-title'),body:v('#f-body')});view={name:'post',id:p.id}}
-  else if(a==='del'){if(confirm('Delete this post and its comments?')){api.deletePost(pid);view={name:'home'}}}
-  else if(a==='addc'){api.addComment(view.id,v('#f-com'))}
-  else if(a==='delc'){api.deleteComment(pid)}
- }catch(e){err=e.message}
- render();
+// ---------- State ----------
+const $ = s => document.querySelector(s);
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const when = t => new Date(t).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+let me = null, posts = [], post = null, comments = [], view = { name: 'home' }, err = '', busy = false;
+
+async function go(v) {
+  view = v; busy = true; render();
+  try {
+    if (v.name === 'home') posts = await call('/posts');
+    if (v.name === 'post') [post, comments] = await Promise.all([call('/posts/' + v.id), call('/posts/' + v.id + '/comments')]);
+    if (v.name === 'edit' && v.id) post = await call('/posts/' + v.id);
+  } catch (e) { err = e.message; }
+  busy = false; render();
+}
+
+// ---------- Render ----------
+function render() {
+  $('#nav').innerHTML = me
+    ? `<span class="meta">Hi, ${esc(me.name)}</span><button class="p" data-act="new">+ New post</button><button data-act="logout">Log out</button>`
+    : `<button data-act="login">Log in</button><button class="p" data-act="register">Sign up</button>`;
+  const e = err ? `<div class="err">${esc(err)}</div>` : ''; err = '';
+  let h = '';
+  if (busy) h = '<p class="meta">Loading… (the server may take ~30s to wake up)</p>';
+  else if (view.name === 'home') {
+    h = e + '<h2 style="margin-bottom:14px">Latest posts</h2>' + (posts.map(p => {
+      const n = p.commentCount || 0;
+      return `<div class="card post" data-act="open" data-id="${p._id}"><h3>${esc(p.title)}</h3><div class="meta">${esc(p.author?.name || 'Unknown')} · ${when(p.createdAt)} · ${n} comment${n === 1 ? '' : 's'}</div><p style="margin:10px 0 0">${esc(p.body.slice(0, 160))}${p.body.length > 160 ? '…' : ''}</p></div>`;
+    }).join('') || '<p class="meta">No posts yet. Be the first to write one!</p>');
+  } else if (view.name === 'login' || view.name === 'register') {
+    const r = view.name === 'register';
+    h = `<div class="card"><h2>${r ? 'Create account' : 'Log in'}</h2>${e}${r ? '<label>Name</label><input id="f-name" autocomplete="name">' : ''}<label>Email</label><input id="f-email" type="email" autocomplete="email"><label>Password</label><input id="f-pw" type="password" autocomplete="${r ? 'new-password' : 'current-password'}"><button class="p" data-act="${r ? 'doreg' : 'dologin'}">${r ? 'Sign up' : 'Log in'}</button> <button class="l" data-act="${r ? 'login' : 'register'}">${r ? 'Have an account?' : 'Need an account?'}</button></div>`;
+  } else if (view.name === 'edit') {
+    const p = view.id && post ? post : { title: '', body: '' };
+    h = `<div class="card"><h2>${view.id ? 'Edit post' : 'New post'}</h2>${e}<label>Title</label><input id="f-title" value="${esc(p.title)}"><label>Content</label><textarea id="f-body">${esc(p.body)}</textarea><div class="row"><button class="p" data-act="dosave">${view.id ? 'Save changes' : 'Publish'}</button><button data-act="home">Cancel</button></div></div>`;
+  } else if (view.name === 'post' && post) {
+    const own = me && post.author && me.id === post.author._id;
+    h = `${e}<button class="l" data-act="home">← All posts</button><div class="card" style="margin-top:10px"><h1>${esc(post.title)}</h1><div class="meta">${esc(post.author?.name || 'Unknown')} · ${when(post.createdAt)}${post.updatedAt !== post.createdAt ? ' · edited ' + when(post.updatedAt) : ''}</div><div class="body">${esc(post.body)}</div>${own ? `<div class="row"><button data-act="edit" data-id="${post._id}">Edit</button><button class="d" data-act="del" data-id="${post._id}">Delete</button></div>` : ''}</div>
+    <h3>${comments.length} comment${comments.length === 1 ? '' : 's'}</h3><div class="card">${comments.map(c => `<div class="cm"><div class="meta"><b>${esc(c.author?.name || 'Unknown')}</b> · ${when(c.createdAt)}${me && c.author && me.id === c.author._id ? ` · <button class="l d" data-act="delc" data-id="${c._id}">delete</button>` : ''}</div>${esc(c.text)}</div>`).join('') || '<div class="meta">Be the first to comment.</div>'}
+    ${me ? `<div style="margin-top:12px"><textarea id="f-com" style="min-height:80px" placeholder="Add a comment…"></textarea><button class="p" data-act="addc">Post comment</button></div>` : '<div class="meta" style="margin-top:12px">Log in to join the discussion.</div>'}</div>`;
+  } else h = e;
+  $('#app').innerHTML = h;
+}
+
+// ---------- Events ----------
+document.addEventListener('click', async ev => {
+  const t = ev.target.closest('[data-act]'); if (!t) return;
+  const a = t.dataset.act, id = t.dataset.id, v = s => ($(s) || {}).value || '';
+  try {
+    if (a === 'home') return go({ name: 'home' });
+    if (a === 'login' || a === 'register') { view = { name: a }; return render(); }
+    if (a === 'new') return me ? go({ name: 'edit' }) : (view = { name: 'login' }, render());
+    if (a === 'open') return go({ name: 'post', id });
+    if (a === 'edit') return go({ name: 'edit', id });
+    if (a === 'logout') { setToken(null); me = null; return go({ name: 'home' }); }
+    if (a === 'doreg') {
+      const d = await call('/auth/register', 'POST', { name: v('#f-name').trim(), email: v('#f-email').trim(), password: v('#f-pw') });
+      setToken(d.token); me = d.user; return go({ name: 'home' });
+    }
+    if (a === 'dologin') {
+      const d = await call('/auth/login', 'POST', { email: v('#f-email').trim(), password: v('#f-pw') });
+      setToken(d.token); me = d.user; return go({ name: 'home' });
+    }
+    if (a === 'dosave') {
+      const body = { title: v('#f-title'), body: v('#f-body') };
+      const p = view.id ? await call('/posts/' + view.id, 'PUT', body) : await call('/posts', 'POST', body);
+      return go({ name: 'post', id: p._id });
+    }
+    if (a === 'del') {
+      if (!confirm('Delete this post and its comments?')) return;
+      await call('/posts/' + id, 'DELETE'); return go({ name: 'home' });
+    }
+    if (a === 'addc') {
+      await call(`/posts/${view.id}/comments`, 'POST', { text: v('#f-com') });
+      comments = await call(`/posts/${view.id}/comments`);
+    }
+    if (a === 'delc') {
+      await call('/comments/' + id, 'DELETE');
+      comments = await call(`/posts/${view.id}/comments`);
+    }
+  } catch (e) { err = e.message; }
+  render();
 });
-render();
+
+// ---------- Init ----------
+(async () => {
+  if (token) { try { me = await call('/auth/me'); } catch (e) { setToken(null); } }
+  go({ name: 'home' });
+})();
 </script></body></html>

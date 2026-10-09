@@ -1,176 +1,123 @@
-
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="Margin Journal — thoughtful stories on technology, design and culture.">
-    <meta name="theme-color" content="#f8f7f4">
-    <title>Margin — Ideas Worth Your Time</title>
-
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:wght@500;600;700&display=swap" rel="stylesheet">
-
-    <link rel="stylesheet" href="style.css">
-    <script src="script.js" defer></script>
-</head>
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Inkwell – Blog Platform</title>
+<style>
+:root{--bg:#faf8f5;--card:#fff;--ink:#1d1b19;--mute:#6b665f;--line:#e8e3dc;--acc:#2f5d50;--accT:#fff;--danger:#b3261e;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#161513;--card:#201f1c;--ink:#f0ece6;--mute:#a09a90;--line:#33312c;--acc:#7fc4ad;--accT:#10201b;--danger:#ff8a80}}
+:root[data-theme="dark"]{--bg:#161513;--card:#201f1c;--ink:#f0ece6;--mute:#a09a90;--line:#33312c;--acc:#7fc4ad;--accT:#10201b;--danger:#ff8a80}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.6 Georgia,'Times New Roman',serif}
+header{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:14px 20px;border-bottom:1px solid var(--line);max-width:760px;margin:0 auto}
+.logo{font-weight:700;font-size:22px;cursor:pointer;color:var(--acc)}
+nav{display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-family:system-ui,sans-serif;font-size:14px}
+main{max-width:760px;margin:0 auto;padding:20px}
+button,input,textarea{font:inherit;font-family:system-ui,sans-serif}
+button{border:1px solid var(--line);background:var(--card);color:var(--ink);padding:7px 14px;border-radius:8px;cursor:pointer;font-size:14px}
+button.p{background:var(--acc);color:var(--accT);border-color:var(--acc)}
+button.d{color:var(--danger)}
+button.l{border:0;background:none;padding:0 4px;color:var(--mute);text-decoration:underline}
+input,textarea{width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);margin:4px 0 12px;font-size:15px}
+textarea{min-height:200px;resize:vertical}
+label{font:600 13px system-ui,sans-serif;color:var(--mute)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:18px 20px;margin-bottom:14px}
+.post{cursor:pointer}.post:hover{border-color:var(--acc)}
+h1,h2,h3{line-height:1.25;margin:0 0 6px}
+.meta{font:13px system-ui,sans-serif;color:var(--mute)}
+.body{white-space:pre-wrap;margin:16px 0}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.err{color:var(--danger);font:14px system-ui,sans-serif;margin-bottom:8px}
+.cm{border-top:1px solid var(--line);padding:10px 0}
+</style></head>
 <body>
+<header><div class="logo" data-act="home">✒️ Inkwell</div><nav id="nav"></nav></header>
+<main id="app"></main>
+<script>
+// ---------- Storage ----------
+let mem=null;
+const KEY='inkwell_db_v1';
+function load(){try{const r=localStorage.getItem(KEY);if(r)return JSON.parse(r)}catch(e){}return mem}
+function save(d){mem=d;try{localStorage.setItem(KEY,JSON.stringify(d))}catch(e){}}
+let db=load()||{users:[],posts:[],comments:[],session:null,seq:1};
+const id=()=>db.seq++;
+const hash=async(s)=>{try{const b=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(s));return [...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,'0')).join('')}catch(e){return btoa(s)}};
+if(!db.posts.length){db.users.push({id:0,name:'Inkwell Team',email:'team@inkwell.dev',pw:''});
+db.posts.push({id:id(),authorId:0,title:'Welcome to Inkwell',body:'Register an account, write your first post, and join the conversation in the comments.\n\nPosts and comments are saved in your browser.',created:Date.now(),updated:null});save(db)}
 
-    <div class="announcement">
-        <span>✳</span> Ideas worth your time.
-        <a href="#stories">Discover the journal ↗</a>
-    </div>
+// ---------- API layer ----------
+const api={
+ async register({name,email,password}){
+  if(!name||!email||password.length<6)throw Error('Name, email and a 6+ character password are required.');
+  email=email.toLowerCase();if(db.users.some(u=>u.email===email))throw Error('Email already registered.');
+  const u={id:id(),name,email,pw:await hash(password+email)};db.users.push(u);db.session=u.id;save(db);return u},
+ async login({email,password}){
+  email=email.toLowerCase();const u=db.users.find(u=>u.email===email&&u.pw===await hash(password+email));
+  if(!u)throw Error('Invalid email or password.');db.session=u.id;save(db);return u},
+ logout(){db.session=null;save(db)},
+ me(){return db.users.find(u=>u.id===db.session)||null},
+ listPosts(){return [...db.posts].sort((a,b)=>b.created-a.created)},
+ getPost(i){return db.posts.find(p=>p.id===i)},
+ savePost({id:pid,title,body}){
+  const me=api.me();if(!me)throw Error('Login required.');if(!title.trim()||!body.trim())throw Error('Title and content are required.');
+  if(pid){const p=api.getPost(pid);if(p.authorId!==me.id)throw Error('Not allowed.');p.title=title.trim();p.body=body.trim();p.updated=Date.now();save(db);return p}
+  const p={id:id(),authorId:me.id,title:title.trim(),body:body.trim(),created:Date.now(),updated:null};db.posts.push(p);save(db);return p},
+ deletePost(pid){const me=api.me(),p=api.getPost(pid);if(!me||p.authorId!==me.id)return;db.posts=db.posts.filter(x=>x.id!==pid);db.comments=db.comments.filter(c=>c.postId!==pid);save(db)},
+ comments(pid){return db.comments.filter(c=>c.postId===pid).sort((a,b)=>a.created-b.created)},
+ addComment(pid,text){const me=api.me();if(!me)throw Error('Login required.');if(!text.trim())throw Error('Comment is empty.');db.comments.push({id:id(),postId:pid,authorId:me.id,text:text.trim(),created:Date.now()});save(db)},
+ deleteComment(cid){const me=api.me(),c=db.comments.find(x=>x.id===cid);if(me&&c&&c.authorId===me.id){db.comments=db.comments.filter(x=>x.id!==cid);save(db)}}
+};
 
-    <header class="header">
-        <a href="#home" class="logo"><span class="logo-mark">m.</span> margin<span>.</span></a>
+// ---------- UI ----------
+const $=s=>document.querySelector(s);
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const who=i=>(db.users.find(u=>u.id===i)||{name:'Unknown'}).name;
+const when=t=>new Date(t).toLocaleDateString(undefined,{year:'numeric',month:'short',day:'numeric'});
+let view={name:'home'},err='';
 
-        <nav id="navigation" aria-label="Main navigation">
-            <a href="#home">Home</a>
-            <a href="#stories">Stories</a>
-            <a href="#topics">Topics</a>
-            <a href="#about">About</a>
-        </nav>
+function render(){
+ const me=api.me();
+ $('#nav').innerHTML=me?`<span class="meta">Hi, ${esc(me.name)}</span><button class="p" data-act="new">+ New post</button><button data-act="logout">Log out</button>`
+  :`<button data-act="login">Log in</button><button class="p" data-act="register">Sign up</button>`;
+ const e=err?`<div class="err">${esc(err)}</div>`:'';err='';
+ let h='';
+ if(view.name==='home'){
+  h='<h2 style="margin-bottom:14px">Latest posts</h2>'+api.listPosts().map(p=>{
+   const n=api.comments(p.id).length;
+   return `<div class="card post" data-act="open" data-id="${p.id}"><h3>${esc(p.title)}</h3><div class="meta">${esc(who(p.authorId))} · ${when(p.created)} · ${n} comment${n===1?'':'s'}</div><p style="margin:10px 0 0">${esc(p.body.slice(0,160))}${p.body.length>160?'…':''}</p></div>`}).join('')||'<p class="meta">No posts yet.</p>';
+ }else if(view.name==='login'||view.name==='register'){
+  const r=view.name==='register';
+  h=`<div class="card"><h2>${r?'Create account':'Log in'}</h2>${e}${r?'<label>Name</label><input id="f-name" autocomplete="name">':''}<label>Email</label><input id="f-email" type="email" autocomplete="email"><label>Password</label><input id="f-pw" type="password" autocomplete="${r?'new-password':'current-password'}"><button class="p" data-act="${r?'doreg':'dologin'}">${r?'Sign up':'Log in'}</button> <button class="l" data-act="${r?'login':'register'}">${r?'Have an account?':'Need an account?'}</button></div>`;
+ }else if(view.name==='edit'){
+  const p=view.id?api.getPost(view.id):{title:'',body:''};
+  h=`<div class="card"><h2>${view.id?'Edit post':'New post'}</h2>${e}<label>Title</label><input id="f-title" value="${esc(p.title)}"><label>Content</label><textarea id="f-body">${esc(p.body)}</textarea><div class="row"><button class="p" data-act="dosave">${view.id?'Save changes':'Publish'}</button><button data-act="home">Cancel</button></div></div>`;
+ }else if(view.name==='post'){
+  const p=api.getPost(view.id);if(!p){view={name:'home'};return render()}
+  const own=me&&me.id===p.authorId,cs=api.comments(p.id);
+  h=`<button class="l" data-act="home">← All posts</button><div class="card" style="margin-top:10px"><h1>${esc(p.title)}</h1><div class="meta">${esc(who(p.authorId))} · ${when(p.created)}${p.updated?' · edited '+when(p.updated):''}</div><div class="body">${esc(p.body)}</div>${own?`<div class="row"><button data-act="edit" data-id="${p.id}">Edit</button><button class="d" data-act="del" data-id="${p.id}">Delete</button></div>`:''}</div>
+  <h3>${cs.length} comment${cs.length===1?'':'s'}</h3><div class="card">${cs.map(c=>`<div class="cm"><div class="meta"><b>${esc(who(c.authorId))}</b> · ${when(c.created)}${me&&me.id===c.authorId?` · <button class="l d" data-act="delc" data-id="${c.id}">delete</button>`:''}</div>${esc(c.text)}</div>`).join('')||'<div class="meta">Be the first to comment.</div>'}
+  ${me?`<div style="margin-top:12px">${e}<textarea id="f-com" style="min-height:80px" placeholder="Add a comment…"></textarea><button class="p" data-act="addc">Post comment</button></div>`:'<div class="meta" style="margin-top:12px">Log in to join the discussion.</div>'}</div>`;
+ }
+ $('#app').innerHTML=h;
+}
 
-        <div class="header-actions">
-            <button id="themeToggle" class="icon-btn" aria-label="Toggle dark mode">◐</button>
-            <a href="#stories" class="header-cta">Explore journal ↗</a>
-            <button id="menuToggle" class="icon-btn menu-btn" aria-label="Open menu" aria-expanded="false">☰</button>
-        </div>
-    </header>
-
-    <main>
-        <section class="hero container" id="home">
-            <div class="hero-content">
-                <div class="eyebrow"><span></span> THE INDEPENDENT JOURNAL</div>
-                <h1>Ideas for a world that never <em>stands still.</em></h1>
-                <p>Thoughtful stories on technology, design and the people shaping what comes next. Made for curious minds.</p>
-                <a href="#stories" class="primary-btn">Discover the journal <span>↗</span></a>
-
-                <div class="hero-note">
-                    <div class="avatar-stack"><span>M</span><span>A</span><span>J</span></div>
-                    <p><strong>Made for the curious.</strong><br>Read at your own pace.</p>
-                </div>
-            </div>
-
-            <div class="hero-visual">
-                <img src="https://images.unsplash.com/photo-1497366754035-f200968a6e72?auto=format&fit=crop&w=1400&q=85" alt="Sunlit modern creative workspace">
-                <div class="hero-caption">
-                    <span>A NOTE ON CREATIVITY</span>
-                    <h3>Make room for better ideas.</h3>
-                    <a href="#stories" aria-label="Explore stories">↗</a>
-                </div>
-                <span class="image-index">VOL. 01 — 2026</span>
-            </div>
-        </section>
-
-        <div class="ticker">
-            <span>INDEPENDENT THINKING</span><b>✳</b>
-            <span>FRESH PERSPECTIVES</span><b>✳</b>
-            <span>IDEAS THAT MATTER</span><b>✳</b>
-            <span>ALWAYS CURIOUS</span>
-        </div>
-
-        <section class="container stories-section" id="stories">
-            <div class="section-heading">
-                <div>
-                    <div class="eyebrow"><span></span> THE READING LIST</div>
-                    <h2>Stories worth <em>staying for.</em></h2>
-                </div>
-                <p>Fresh thinking, useful ideas and a different way to look at everyday life.</p>
-            </div>
-
-            <div class="toolbar">
-                <div class="filters" id="filters">
-                    <button class="filter active" data-category="All">All stories</button>
-                    <button class="filter" data-category="Technology">Technology</button>
-                    <button class="filter" data-category="Design">Design</button>
-                    <button class="filter" data-category="Culture">Culture</button>
-                    <button class="filter" data-category="Ideas">Ideas</button>
-                </div>
-                <label class="search-box">
-                    <span>⌕</span>
-                    <input type="search" id="searchInput" placeholder="Search stories..." aria-label="Search stories">
-                </label>
-            </div>
-
-            <div id="featuredStory"></div>
-            <div class="story-grid" id="storyGrid" aria-live="polite"></div>
-
-            <div id="emptyMessage" class="empty-state" hidden>
-                <span>◌</span>
-                <h3>No stories found</h3>
-                <p>Try another keyword or choose a different topic.</p>
-                <button id="resetFilters" class="text-btn">Clear filters ↗</button>
-            </div>
-        </section>
-
-        <section class="newsletter" id="about">
-            <div class="container newsletter-inner">
-                <div class="newsletter-brand">m.</div>
-                <div class="newsletter-copy">
-                    <div class="eyebrow light"><span></span> THE MARGIN LETTER</div>
-                    <h2>A little inspiration.<br><em>Delivered thoughtfully.</em></h2>
-                    <p>A monthly collection of ideas, reads and things worth thinking about. No noise, just the good stuff.</p>
-                </div>
-                <form id="newsletterForm">
-                    <label for="email">Your email address</label>
-                    <div class="email-row">
-                        <input type="email" id="email" placeholder="you@example.com" required>
-                        <button type="submit" aria-label="Subscribe">↗</button>
-                    </div>
-                    <small id="newsletterMessage">Connect a mailing service to enable subscriptions.</small>
-                </form>
-            </div>
-        </section>
-
-        <section class="container topics-section" id="topics">
-            <div class="eyebrow"><span></span> FOLLOW YOUR CURIOSITY</div>
-            <h2>Find your <em>next rabbit hole.</em></h2>
-
-            <div class="topics-grid">
-                <button class="topic-card" data-topic="Technology">
-                    <span class="topic-number">01 / TOPIC</span>
-                    <span class="topic-icon">⌘</span>
-                    <h3>Technology</h3>
-                    <p>What's next, and why it matters.</p>
-                    <span class="topic-arrow">↗</span>
-                </button>
-                <button class="topic-card" data-topic="Design">
-                    <span class="topic-number">02 / TOPIC</span>
-                    <span class="topic-icon">◒</span>
-                    <h3>Design</h3>
-                    <p>Thoughtful work, made with intent.</p>
-                    <span class="topic-arrow">↗</span>
-                </button>
-                <button class="topic-card" data-topic="Culture">
-                    <span class="topic-number">03 / TOPIC</span>
-                    <span class="topic-icon">✳</span>
-                    <h3>Culture</h3>
-                    <p>The things that bring us together.</p>
-                    <span class="topic-arrow">↗</span>
-                </button>
-            </div>
-        </section>
-    </main>
-
-    <footer class="container footer">
-        <a href="#home" class="logo"><span class="logo-mark">m.</span> margin<span>.</span></a>
-        <p>Good ideas deserve a little more space.</p>
-        <div class="footer-links">
-            <a href="#about">About</a>
-            <a href="#stories">Explore</a>
-            <a href="mailto:hello@example.com">Contact</a>
-            <span>© <span id="year"></span> Margin</span>
-        </div>
-    </footer>
-
-    <dialog id="articleDialog" class="article-dialog">
-        <button id="closeDialog" class="dialog-close" aria-label="Close article">×</button>
-        <div id="articleContent"></div>
-    </dialog>
-
-    <div id="toast" role="status" aria-live="polite"></div>
-
-</body>
-</html>
+document.addEventListener('click',async ev=>{
+ const t=ev.target.closest('[data-act]');if(!t)return;
+ const a=t.dataset.act,pid=+t.dataset.id,v=s=>($(s)||{}).value||'';
+ try{
+  if(a==='home')view={name:'home'};
+  else if(a==='login'||a==='register')view={name:a};
+  else if(a==='new'){if(!api.me())return view={name:'login'},render();view={name:'edit'}}
+  else if(a==='open')view={name:'post',id:pid};
+  else if(a==='edit')view={name:'edit',id:pid};
+  else if(a==='logout'){api.logout();view={name:'home'}}
+  else if(a==='doreg'){await api.register({name:v('#f-name').trim(),email:v('#f-email').trim(),password:v('#f-pw')});view={name:'home'}}
+  else if(a==='dologin'){await api.login({email:v('#f-email').trim(),password:v('#f-pw')});view={name:'home'}}
+  else if(a==='dosave'){const p=api.savePost({id:view.id,title:v('#f-title'),body:v('#f-body')});view={name:'post',id:p.id}}
+  else if(a==='del'){if(confirm('Delete this post and its comments?')){api.deletePost(pid);view={name:'home'}}}
+  else if(a==='addc'){api.addComment(view.id,v('#f-com'))}
+  else if(a==='delc'){api.deleteComment(pid)}
+ }catch(e){err=e.message}
+ render();
+});
+render();
+</script></body></html>

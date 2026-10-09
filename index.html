@@ -1,24 +1,176 @@
+
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>Blog Platform</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Margin Journal — thoughtful stories on technology, design and culture.">
+    <meta name="theme-color" content="#f8f7f4">
+    <title>Margin — Ideas Worth Your Time</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:wght@500;600;700&display=swap" rel="stylesheet">
+
     <link rel="stylesheet" href="style.css">
+    <script src="script.js" defer></script>
 </head>
 <body>
 
-<h1>Blog Platform</h1>
+    <div class="announcement">
+        <span>✳</span> Ideas worth your time.
+        <a href="#stories">Discover the journal ↗</a>
+    </div>
 
-<div class="container">
+    <header class="header">
+        <a href="#home" class="logo"><span class="logo-mark">m.</span> margin<span>.</span></a>
 
-    <input type="text" id="title" placeholder="Blog Title">
-    <textarea id="content" placeholder="Write your blog..."></textarea>
+        <nav id="navigation" aria-label="Main navigation">
+            <a href="#home">Home</a>
+            <a href="#stories">Stories</a>
+            <a href="#topics">Topics</a>
+            <a href="#about">About</a>
+        </nav>
 
-    <button onclick="addPost()">Publish Post</button>
+        <div class="header-actions">
+            <button id="themeToggle" class="icon-btn" aria-label="Toggle dark mode">◐</button>
+            <a href="#stories" class="header-cta">Explore journal ↗</a>
+            <button id="menuToggle" class="icon-btn menu-btn" aria-label="Open menu" aria-expanded="false">☰</button>
+        </div>
+    </header>
 
-    <div id="posts"></div>
+    <main>
+        <section class="hero container" id="home">
+            <div class="hero-content">
+                <div class="eyebrow"><span></span> THE INDEPENDENT JOURNAL</div>
+                <h1>Ideas for a world that never <em>stands still.</em></h1>
+                <p>Thoughtful stories on technology, design and the people shaping what comes next. Made for curious minds.</p>
+                <a href="#stories" class="primary-btn">Discover the journal <span>↗</span></a>
 
-</div>
+                <div class="hero-note">
+                    <div class="avatar-stack"><span>M</span><span>A</span><span>J</span></div>
+                    <p><strong>Made for the curious.</strong><br>Read at your own pace.</p>
+                </div>
+            </div>
 
-<script src="script.js"></script>
+            <div class="hero-visual">
+                <img src="https://images.unsplash.com/photo-1497366754035-f200968a6e72?auto=format&fit=crop&w=1400&q=85" alt="Sunlit modern creative workspace">
+                <div class="hero-caption">
+                    <span>A NOTE ON CREATIVITY</span>
+                    <h3>Make room for better ideas.</h3>
+                    <a href="#stories" aria-label="Explore stories">↗</a>
+                </div>
+                <span class="image-index">VOL. 01 — 2026</span>
+            </div>
+        </section>
+
+        <div class="ticker">
+            <span>INDEPENDENT THINKING</span><b>✳</b>
+            <span>FRESH PERSPECTIVES</span><b>✳</b>
+            <span>IDEAS THAT MATTER</span><b>✳</b>
+            <span>ALWAYS CURIOUS</span>
+        </div>
+
+        <section class="container stories-section" id="stories">
+            <div class="section-heading">
+                <div>
+                    <div class="eyebrow"><span></span> THE READING LIST</div>
+                    <h2>Stories worth <em>staying for.</em></h2>
+                </div>
+                <p>Fresh thinking, useful ideas and a different way to look at everyday life.</p>
+            </div>
+
+            <div class="toolbar">
+                <div class="filters" id="filters">
+                    <button class="filter active" data-category="All">All stories</button>
+                    <button class="filter" data-category="Technology">Technology</button>
+                    <button class="filter" data-category="Design">Design</button>
+                    <button class="filter" data-category="Culture">Culture</button>
+                    <button class="filter" data-category="Ideas">Ideas</button>
+                </div>
+                <label class="search-box">
+                    <span>⌕</span>
+                    <input type="search" id="searchInput" placeholder="Search stories..." aria-label="Search stories">
+                </label>
+            </div>
+
+            <div id="featuredStory"></div>
+            <div class="story-grid" id="storyGrid" aria-live="polite"></div>
+
+            <div id="emptyMessage" class="empty-state" hidden>
+                <span>◌</span>
+                <h3>No stories found</h3>
+                <p>Try another keyword or choose a different topic.</p>
+                <button id="resetFilters" class="text-btn">Clear filters ↗</button>
+            </div>
+        </section>
+
+        <section class="newsletter" id="about">
+            <div class="container newsletter-inner">
+                <div class="newsletter-brand">m.</div>
+                <div class="newsletter-copy">
+                    <div class="eyebrow light"><span></span> THE MARGIN LETTER</div>
+                    <h2>A little inspiration.<br><em>Delivered thoughtfully.</em></h2>
+                    <p>A monthly collection of ideas, reads and things worth thinking about. No noise, just the good stuff.</p>
+                </div>
+                <form id="newsletterForm">
+                    <label for="email">Your email address</label>
+                    <div class="email-row">
+                        <input type="email" id="email" placeholder="you@example.com" required>
+                        <button type="submit" aria-label="Subscribe">↗</button>
+                    </div>
+                    <small id="newsletterMessage">Connect a mailing service to enable subscriptions.</small>
+                </form>
+            </div>
+        </section>
+
+        <section class="container topics-section" id="topics">
+            <div class="eyebrow"><span></span> FOLLOW YOUR CURIOSITY</div>
+            <h2>Find your <em>next rabbit hole.</em></h2>
+
+            <div class="topics-grid">
+                <button class="topic-card" data-topic="Technology">
+                    <span class="topic-number">01 / TOPIC</span>
+                    <span class="topic-icon">⌘</span>
+                    <h3>Technology</h3>
+                    <p>What's next, and why it matters.</p>
+                    <span class="topic-arrow">↗</span>
+                </button>
+                <button class="topic-card" data-topic="Design">
+                    <span class="topic-number">02 / TOPIC</span>
+                    <span class="topic-icon">◒</span>
+                    <h3>Design</h3>
+                    <p>Thoughtful work, made with intent.</p>
+                    <span class="topic-arrow">↗</span>
+                </button>
+                <button class="topic-card" data-topic="Culture">
+                    <span class="topic-number">03 / TOPIC</span>
+                    <span class="topic-icon">✳</span>
+                    <h3>Culture</h3>
+                    <p>The things that bring us together.</p>
+                    <span class="topic-arrow">↗</span>
+                </button>
+            </div>
+        </section>
+    </main>
+
+    <footer class="container footer">
+        <a href="#home" class="logo"><span class="logo-mark">m.</span> margin<span>.</span></a>
+        <p>Good ideas deserve a little more space.</p>
+        <div class="footer-links">
+            <a href="#about">About</a>
+            <a href="#stories">Explore</a>
+            <a href="mailto:hello@example.com">Contact</a>
+            <span>© <span id="year"></span> Margin</span>
+        </div>
+    </footer>
+
+    <dialog id="articleDialog" class="article-dialog">
+        <button id="closeDialog" class="dialog-close" aria-label="Close article">×</button>
+        <div id="articleContent"></div>
+    </dialog>
+
+    <div id="toast" role="status" aria-live="polite"></div>
+
 </body>
 </html>
